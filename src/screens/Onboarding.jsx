@@ -42,14 +42,14 @@ export default function Onboarding({ onComplete }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between p-5 pb-8 max-w-md mx-auto">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-between p-5 md:p-10 pb-8 max-w-4xl mx-auto space-y-6">
       <div className="space-y-6 pt-4">
         {/* Header */}
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 bg-green-950/80 border border-green-600/50 text-green-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
             <ShieldCheck className="w-4 h-4" /> Welcome to NutriScan
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Personalize Your Scan</h1>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">Personalize Your Scan</h1>
           <p className="text-slate-300 text-base leading-relaxed">
             Photograph ingredients on packaged food to decode cryptic chemical names, spot allergens, and flag personal health concerns instantly.
           </p>
@@ -60,7 +60,7 @@ export default function Onboarding({ onComplete }) {
           <h2 className="text-base font-bold text-slate-200">
             Select common allergens to flag:
           </h2>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {allergensData.map((allergen) => (
               <AllergenChip
                 key={allergen.id}

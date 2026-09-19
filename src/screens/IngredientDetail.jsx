@@ -21,7 +21,7 @@ export default function IngredientDetail() {
 
   if (!additive) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-6 flex flex-col justify-center items-center text-center space-y-4 max-w-md mx-auto">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-6 flex flex-col justify-center items-center text-center space-y-4 max-w-4xl mx-auto">
         <h2 className="text-xl font-bold">Not in Database Yet</h2>
         <p className="text-slate-500 dark:text-slate-400 text-sm">We don't have a verified reference record for this ingredient in our database yet.</p>
         <ScanButton onClick={() => navigate(-1)} variant="secondary">
