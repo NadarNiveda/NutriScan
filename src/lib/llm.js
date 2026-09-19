@@ -150,6 +150,23 @@ Write a genuine, authoritative 2-sentence Clinical Nutritionist summary of this 
   }
 }
 
+function isApiErrorResponse(text) {
+  if (!text || typeof text !== 'string') return true;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("account behind") ||
+    lower.includes("enough credits") ||
+    lower.includes("pollinations") ||
+    lower.includes("top-up") ||
+    lower.includes("api key") ||
+    lower.includes("rate limit") ||
+    lower.includes("unauthorized") ||
+    lower.includes("quest") ||
+    lower.includes("forbidden") ||
+    lower.includes("service_unavailable")
+  );
+}
+
 /**
  * Calls AI LLM API as a Clinical Nutritionist to answer user questions about any ingredient.
  * Enforces strict boundary rules prohibiting out-of-the-box speculation or off-topic responses.
@@ -194,7 +211,7 @@ Answer the user's specific question directly with expert Clinical Nutritionist k
 
     const responseText = await callLlmApi(prompt);
 
-    if (responseText && (responseText.includes("I can only answer questions") || responseText.length > 5)) {
+    if (responseText && !isApiErrorResponse(responseText) && (responseText.includes("I can only answer questions") || responseText.length > 5)) {
       return responseText.trim();
     }
 
@@ -209,26 +226,18 @@ Answer the user's specific question directly with expert Clinical Nutritionist k
  * Helper to call Pollinations AI free text endpoint or Hugging Face Inference API with a 6-second timeout.
  */
 async function callLlmApi(prompt) {
-  // 1. Try Pollinations AI free fast endpoint first
+  // 1. Try Pollinations AI free fast endpoint first (WITHOUT model=openai which requires paid credits)
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_LLM_TIMEOUT_MS);
 
-    const polUrl = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=openai`;
+    const polUrl = `https://text.pollinations.ai/${encodeURIComponent(prompt)}`;
     const res = await fetch(polUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
 
     if (res.ok) {
       const text = await res.text();
-      if (
-        text &&
-        text.trim().length > 10 &&
-        !text.includes("doesn't have enough credits") &&
-        !text.includes("pollinations.ai") &&
-        !text.includes("top-up") &&
-        !text.includes("API key") &&
-        !text.toLowerCase().includes("rate limit")
-      ) {
+      if (text && text.trim().length > 10 && !isApiErrorResponse(text)) {
         return text.trim();
       }
     }
@@ -265,10 +274,14 @@ async function callLlmApi(prompt) {
 
       if (res.ok) {
         const data = await res.json();
+        let generated = null;
         if (Array.isArray(data) && data[0] && data[0].generated_text) {
-          return data[0].generated_text;
+          generated = data[0].generated_text;
         } else if (data && data.generated_text) {
-          return data.generated_text;
+          generated = data.generated_text;
+        }
+        if (generated && !isApiErrorResponse(generated)) {
+          return generated;
         }
       }
     } catch (e) {
