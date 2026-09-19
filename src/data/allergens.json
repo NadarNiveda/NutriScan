@@ -1,0 +1,66 @@
+[
+  {
+    "id": "peanuts",
+    "label": "Peanuts",
+    "icon": "🥜",
+    "synonyms": [
+      "peanut", "peanuts", "groundnut", "groundnuts", "peanut oil", "arachis oil", "peanut flour", "peanut protein", "ground nut"
+    ]
+  },
+  {
+    "id": "tree_nuts",
+    "label": "Tree Nuts",
+    "icon": "🌰",
+    "synonyms": [
+      "almond", "almonds", "cashew", "cashews", "walnut", "walnuts", "pistachio", "pistachios", "hazelnut", "hazelnut", "macadamia", "pecan", "brazil nut", "pine nut", "tree nuts", "nut", "nuts"
+    ]
+  },
+  {
+    "id": "dairy",
+    "label": "Dairy & Milk",
+    "icon": "🥛",
+    "synonyms": [
+      "milk", "whey", "casein", "caseinate", "lactose", "butter", "ghee", "cream", "milk solids", "paneer", "milk powder", "skimmed milk", "skimmed milk powder", "curd", "yogurt", "buttermilk", "milk fat", "condensed milk", "cheese", "sodium caseinate", "calcium caseinate", "milk protein"
+    ]
+  },
+  {
+    "id": "gluten",
+    "label": "Gluten & Wheat",
+    "icon": "🌾",
+    "synonyms": [
+      "wheat", "gluten", "maida", "wheat flour", "refined wheat flour", "semolina", "suji", "rava", "barley", "rye", "oats", "spelt", "kamut", "wheat starch", "atta", "durum wheat", "vital wheat gluten"
+    ]
+  },
+  {
+    "id": "soy",
+    "label": "Soy & Soya",
+    "icon": "🫘",
+    "synonyms": [
+      "soy", "soya", "soybean", "soy lecithin", "soya lecithin", "soy protein", "soy flour", "tofu", "edamame", "soy sauce", "hydrolyzed soy protein", "soybean oil"
+    ]
+  },
+  {
+    "id": "eggs",
+    "label": "Eggs",
+    "icon": "🥚",
+    "synonyms": [
+      "egg", "eggs", "egg white", "egg yolk", "albumin", "albumen", "egg powder", "ovalbumin", "lysozyme", "egg solids"
+    ]
+  },
+  {
+    "id": "shellfish",
+    "label": "Shellfish & Seafood",
+    "icon": "🦐",
+    "synonyms": [
+      "shrimp", "prawns", "prawn", "crab", "lobster", "crayfish", "shellfish", "mollusc", "clam", "mussel", "oyster", "squid", "octopus", "fish"
+    ]
+  },
+  {
+    "id": "sesame",
+    "label": "Sesame",
+    "icon": "🫓",
+    "synonyms": [
+      "sesame", "sesame seeds", "til", "gingelly", "sesame oil", "tahini", "sesame flour"
+    ]
+  }
+]
