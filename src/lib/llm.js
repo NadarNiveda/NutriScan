@@ -61,9 +61,9 @@ export function buildFallbackAnswer(matchedIngredient, userQuestion = '') {
   // 1. Age Groups / Toddlers / Children / Babies / Pregnancy / Specific Demographics
   if (/\b(2 year|3 year|4 year|5 year|year old|years old|child|children|kid|kids|toddler|toddlers|baby|babies|infant|infants|pregnant|pregnancy|age)\b/i.test(qLower)) {
     if (/\b(sugar|sweetener|syrup|fructose|glucose|sucrose|jaggery)\b/i.test(category) || concernLevel === 'watch' || concernLevel === 'moderate') {
-      answerText = `For young children and toddlers, ${plainName} should be strictly limited or avoided. Pediatric and dietary guidelines advise restricting concentrated added sugars for children under 2–5 years old to protect dental health and prevent developing high sweet preferences.`;
+      answerText = `For children and toddlers, ${plainName} should be consumed in moderation as it is a refined carbohydrate or processing additive. ${concerns}`;
     } else {
-      answerText = `${plainName} is generally safe for young children and toddlers as part of a balanced, age-appropriate diet. ${concerns}`;
+      answerText = `${plainName} is generally safe for young children and toddlers as part of a balanced diet. ${concerns}`;
     }
   }
   // 2. Side Effects / Symptoms / Reactions / Tooth Decay / Blood Sugar
@@ -199,7 +199,8 @@ Regulatory status: ${matchedIngredient.data.regulatoryNote}`;
 STRICT BOUNDARY RULES:
 1. You MUST answer using ONLY the provided target ingredient information and food safety context below.
 2. Do NOT invent unmentioned facts, make assumptions beyond the text, or answer general off-topic questions.
-3. If the user question is unrelated to this ingredient or food safety, YOU MUST RESPOND EXACTLY: "I can only answer questions about the specific ingredients extracted from this product's label."
+3. Only state numeric values, statistics, or specific guideline citations if they are explicitly present in the provided ingredient data. If asked something that would require a specific number or named guideline you were not given, answer in general terms instead (e.g. 'this may affect blood sugar more than some alternatives' rather than a specific GI number), and do not invent citations to unnamed 'pediatric guidelines' or similar authorities.
+4. If the user question is unrelated to this ingredient or food safety, YOU MUST RESPOND EXACTLY: "I can only answer questions about the specific ingredients extracted from this product's label."
 
 Target Ingredient Information:
 ${context}
