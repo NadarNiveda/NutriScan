@@ -220,7 +220,15 @@ async function callLlmApi(prompt) {
 
     if (res.ok) {
       const text = await res.text();
-      if (text && text.trim().length > 10) {
+      if (
+        text &&
+        text.trim().length > 10 &&
+        !text.includes("doesn't have enough credits") &&
+        !text.includes("pollinations.ai") &&
+        !text.includes("top-up") &&
+        !text.includes("API key") &&
+        !text.toLowerCase().includes("rate limit")
+      ) {
         return text.trim();
       }
     }
