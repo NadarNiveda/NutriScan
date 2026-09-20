@@ -16,7 +16,7 @@ export async function preprocessImage(imageSource) {
       let width = img.width;
       let height = img.height;
 
-      const maxEdge = 1600;
+      const maxEdge = 1800;
       if (width > maxEdge || height > maxEdge) {
         if (width > height) {
           height = Math.round((height * maxEdge) / width);
@@ -32,58 +32,31 @@ export async function preprocessImage(imageSource) {
       canvas.height = height;
       const ctx = canvas.getContext('2d');
 
+      // High-quality bicubic smoothing for text clarity
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
-      const imgData = ctx.getImageData(0, 0, width, height);
-      const data = imgData.data;
-
-      // Step 1: Grayscale conversion & mean brightness calculation
-      let totalLuminance = 0;
-      const grayData = new Uint8Array(width * height);
-
-      for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-        // Luminance formula
-        const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
-        grayData[j] = gray;
-        totalLuminance += gray;
-      }
-
-      const meanLuminance = totalLuminance / (width * height);
-
-      // Step 2: High-contrast binarization & edge sharpening
-      const contrastFactor = (259 * (180 + 255)) / (255 * (259 - 180)); // boost contrast factor ~ 2.1
-
-      for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-        const gray = grayData[j];
-        const contrastVal = contrastFactor * (gray - meanLuminance) + 128;
-        const clamped = Math.min(255, Math.max(0, contrastVal));
-
-        data[i] = clamped;     // Red
-        data[i + 1] = clamped; // Green
-        data[i + 2] = clamped; // Blue
-      }
-
-      ctx.putImageData(imgData, 0, 0);
-      resolve(canvas.toDataURL('image/jpeg', 0.92));
+      resolve(canvas.toDataURL('image/jpeg', 0.95));
     };
 
     if (typeof imageSource === 'string') {
       img.crossOrigin = 'anonymous';
       img.onload = processCanvas;
-      img.onerror = (e) => reject(new Error('Failed to load image for OCR preprocessing'));
+      img.onerror = () => reject(new Error('Failed to load image for OCR preprocessing'));
       img.src = imageSource;
     } else if (imageSource instanceof Blob || imageSource instanceof File) {
       const reader = new FileReader();
       reader.onload = (e) => {
         img.onload = processCanvas;
-        img.onerror = (err) => reject(new Error('Failed to load blob for OCR preprocessing'));
+        img.onerror = () => reject(new Error('Failed to load blob for OCR preprocessing'));
         img.src = e.target.result;
       };
-      reader.onerror = (e) => reject(new Error('Failed to read image file'));
+      reader.onerror = () => reject(new Error('Failed to read image file'));
       reader.readAsDataURL(imageSource);
     } else if (imageSource instanceof HTMLCanvasElement) {
       img.onload = processCanvas;
-      img.src = imageSource.toDataURL('image/jpeg', 0.85);
+      img.src = imageSource.toDataURL('image/jpeg', 0.95);
     } else {
       reject(new Error('Unsupported image source format'));
     }
@@ -91,7 +64,7 @@ export async function preprocessImage(imageSource) {
 }
 
 /**
- * Executes high-precision OCR with whitelisted character set and page segmentation mode.
+ * Executes high-precision OCR with multi-pass recognition for maximum accuracy across label formats.
  * @param {string | Blob | File} imageData 
  * @param {function(number):void} onProgress Progress callback accepting percentage (0-100)
  * @returns {Promise<string>} Extracted OCR text
@@ -112,13 +85,13 @@ export async function runOcr(imageData, onProgress = () => {}) {
 
       if (serverRes.ok) {
         const data = await serverRes.json();
-        if (data && data.text) {
+        if (data && data.text && data.text.trim().length > 10) {
           onProgress(100);
           return fixCommonOcrErrors(data.text);
         }
       }
     } catch (e) {
-      // Fall through to client-side multi-pass Tesseract OCR
+      // Fall through to client-side Tesseract OCR
     }
 
     onProgress(35);
@@ -133,23 +106,31 @@ export async function runOcr(imageData, onProgress = () => {}) {
       }
     });
 
-    // Whitelist only valid English letters, numbers, percentages, and standard ingredient punctuation
-    await worker.setParameters({
-      tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789(),.-%/:; ',
-      tessedit_pageseg_mode: '6' // Assume single uniform block of text
-    });
-
+    // Pass 1: Primary recognition on scaled preprocessed image
     onProgress(50);
-    const ret = await worker.recognize(preprocessed);
-    onProgress(95);
+    let ret = await worker.recognize(preprocessed);
+    let rawText = ret && ret.data && ret.data.text ? ret.data.text.trim() : '';
+
+    // Pass 2: Secondary fallback to original raw imageData if Pass 1 yielded insufficient text
+    if (rawText.length < 15 && imageData !== preprocessed) {
+      onProgress(75);
+      const retRaw = await worker.recognize(imageData);
+      if (retRaw && retRaw.data && retRaw.data.text && retRaw.data.text.trim().length > rawText.length) {
+        rawText = retRaw.data.text.trim();
+      }
+    }
 
     await worker.terminate();
     onProgress(100);
 
-    const rawText = ret.data.text || '';
-    return fixCommonOcrErrors(rawText);
+    const cleanedText = fixCommonOcrErrors(rawText);
+    if (!cleanedText || cleanedText.length < 5) {
+      throw new Error('Could not detect readable ingredient text in this photo. Please try positioning the camera closer or typing ingredients manually.');
+    }
+
+    return cleanedText;
   } catch (err) {
     console.error('OCR Processing error:', err);
-    throw new Error('Failed to recognize text from image. Please try again or type ingredients manually.');
+    throw new Error(err.message || 'Failed to recognize text from image. Please try again or type ingredients manually.');
   }
 }
