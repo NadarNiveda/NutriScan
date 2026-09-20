@@ -41,12 +41,14 @@ const GENERIC_CATEGORY_TERMS = new Set([
   'seasoning', 'seasonings', 'spices and condiments', 'spices & condiments',
   'flavour', 'flavor', 'flavours', 'flavors',
   'flavour enhancer', 'flavour enhancers', 'flavor enhancer', 'flavor enhancers',
+  'flavouring agent', 'flavouring agents', 'flavoring agent', 'flavoring agents',
   'flavouring substances', 'flavoring substances',
   'natural and nature identical flavouring substances',
   'natural and nature identical flavoring substances',
   'acidity regulator', 'acidity regulators',
   'emulsifying & stabilising agent', 'emulsifying and stabilising agent',
   'emulsifying & stabilizing agent', 'emulsifying and stabilizing agent',
+  'emulsifying stabilising agent', 'emulsifying stabilizing agent',
   'emulsifier', 'emulsifiers', 'stabiliser', 'stabilisers', 'stabilizer', 'stabilizers',
   'salt replacer', 'anti-caking agent', 'anti caking agent', 'anticaking agent',
   'preservative', 'preservatives', 'raising agent', 'raising agents',
@@ -105,22 +107,22 @@ function stripHeaderFuzzy(text) {
 }
 
 /**
- * Splits text at paren-depth-0 boundaries. Used both for the top-level
- * comma split and for the sentence-ending period split.
+ * Splits text at bracket-depth-0 boundaries. Supports both () and [] brackets
+ * and multiple delimiter characters like ',' and ';'.
  * @param {string} str
- * @param {string} delimiterChar single character to split on, e.g. ',' or '.'
+ * @param {string[]} delimiters delimiters to split on, e.g. [',', ';']
  * @returns {string[]} segments, delimiter removed
  */
-function splitAtDepthZero(str, delimiterChar) {
+function splitAtDepthZero(str, delimiters = [',', ';']) {
   const segments = [];
   let depth = 0;
   let current = '';
   for (let i = 0; i < str.length; i++) {
     const ch = str[i];
-    if (ch === '(') depth++;
-    else if (ch === ')') depth = Math.max(0, depth - 1);
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth = Math.max(0, depth - 1);
 
-    if (ch === delimiterChar && depth === 0) {
+    if (delimiters.includes(ch) && depth === 0) {
       segments.push(current);
       current = '';
     } else {
@@ -132,31 +134,8 @@ function splitAtDepthZero(str, delimiterChar) {
 }
 
 /**
- * Finds the index of the first depth-0 period that plausibly ends the
- * ingredients sentence (not a decimal point like "0.8%").
- */
-function findIngredientsSentenceEnd(str) {
-  let depth = 0;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str[i];
-    if (ch === '(') depth++;
-    else if (ch === ')') depth = Math.max(0, depth - 1);
-    else if (ch === '.' && depth === 0) {
-      const prevChar = str[i - 1];
-      const nextChar = str[i + 1];
-      const isDecimal = prevChar && /\d/.test(prevChar) && nextChar && /\d/.test(nextChar);
-      if (!isDecimal) return i;
-    }
-  }
-  return -1;
-}
-
-/**
  * Extracts explicit allergen declarations from trailing/footnote text,
  * e.g. "ALLERGEN ADVICE: Contains Soy, Milk, Wheat" or "May contain nuts".
- * Deliberately does NOT trigger on a bare "contains" alone, since that word
- * also appears in unrelated footnotes ("Contains Onion and Garlic" as a
- * flavouring note, not an allergen declaration).
  */
 function extractDeclaredAllergens(trailingText) {
   if (!trailingText) return [];
@@ -188,49 +167,52 @@ const isBareCode = (s) => /^\d{2,4}[a-z]?(\([ivx]+\))?$/i.test(s.trim());
 
 /**
  * Recursively resolves one top-level chunk (e.g. "Flavour Enhancers (627, 631)"
- * or "Edible Vegetable Oil (Palmolein)" or "Calcium Carbonate (170(i))")
+ * or "Seasoning [Sugar, Salt...]" or "Calcium Carbonate (170(i))")
  * into a flat array of real ingredient strings.
  */
 function resolveChunk(chunk) {
   const trimmed = chunk.trim();
   if (!trimmed) return [];
 
+  // Normalize square brackets [ ] to ( ) for uniform parsing
+  const normalizedChunk = trimmed.replace(/\[/g, '(').replace(/\]/g, ')');
+
   // Find the first top-level '(' to split name from parenthetical group(s)
   let depth = 0;
   let firstParenIdx = -1;
-  for (let i = 0; i < trimmed.length; i++) {
-    if (trimmed[i] === '(') {
+  for (let i = 0; i < normalizedChunk.length; i++) {
+    if (normalizedChunk[i] === '(') {
       if (depth === 0) { firstParenIdx = i; break; }
       depth++;
-    } else if (trimmed[i] === ')') {
+    } else if (normalizedChunk[i] === ')') {
       depth = Math.max(0, depth - 1);
     }
   }
 
   if (firstParenIdx === -1) {
     // No parens at all — leaf value
-    const bare = toInsCodeIfBare(trimmed);
-    return [bare || trimmed];
+    const cleanLeaf = trimmed.replace(/^[*~•+\-\s]+/, '');
+    const bare = toInsCodeIfBare(cleanLeaf);
+    return [bare || cleanLeaf];
   }
 
-  const itemName = trimmed.slice(0, firstParenIdx).trim();
+  const itemName = normalizedChunk.slice(0, firstParenIdx).trim();
 
   // Extract ALL top-level paren groups that follow (handles "Name (P1) (P2)")
   const groups = [];
   let i = firstParenIdx;
-  while (i < trimmed.length) {
-    if (trimmed[i] === '(') {
+  while (i < normalizedChunk.length) {
+    if (normalizedChunk[i] === '(') {
       let d = 1;
       let j = i + 1;
-      while (j < trimmed.length && d > 0) {
-        if (trimmed[j] === '(') d++;
-        else if (trimmed[j] === ')') d--;
+      while (j < normalizedChunk.length && d > 0) {
+        if (normalizedChunk[j] === '(') d++;
+        else if (normalizedChunk[j] === ')') d--;
         j++;
       }
-      groups.push(trimmed.slice(i + 1, j - 1));
+      groups.push(normalizedChunk.slice(i + 1, j - 1));
       i = j;
-      // skip whitespace before checking for another immediate group
-      while (trimmed[i] === ' ') i++;
+      while (normalizedChunk[i] === ' ') i++;
     } else {
       break;
     }
@@ -240,16 +222,18 @@ function resolveChunk(chunk) {
 
   if (contentGroups.length === 0) {
     // Only percentage groups (or empty) — just the name itself
-    const bare = toInsCodeIfBare(itemName);
-    return itemName ? [bare || itemName] : [];
+    const cleanName = itemName.replace(/^[*~•+\-\s]+/, '');
+    const bare = toInsCodeIfBare(cleanName);
+    return cleanName ? [bare || cleanName] : [];
   }
 
   // Combine all content groups and split at their own top level
   const combinedInner = contentGroups.join(', ');
-  const subChunks = splitAtDepthZero(combinedInner, ',').map(s => s.trim()).filter(Boolean);
+  const subChunks = splitAtDepthZero(combinedInner, [',', ';']).map(s => s.trim()).filter(Boolean);
   const resolvedSubItems = subChunks.flatMap(resolveChunk);
 
-  const nameKey = itemName.toLowerCase().replace(/\s+/g, ' ').trim();
+  const cleanItemName = itemName.replace(/^[*~•+\-\s]+/, '');
+  const nameKey = cleanItemName.toLowerCase().replace(/\s+/g, ' ').trim();
   const isGeneric = GENERIC_CATEGORY_TERMS.has(nameKey);
 
   if (isGeneric) {
@@ -262,12 +246,12 @@ function resolveChunk(chunk) {
   // one entry. Otherwise, the inner content is a more specific name than
   // the outer — prefer the inner, drop the outer.
   const allBareCodes = subChunks.every(isBareCode);
-  if (allBareCodes && itemName) {
+  if (allBareCodes && cleanItemName) {
     const codes = subChunks.map(c => c.trim()).join(', ');
-    return [`${itemName} (INS ${codes})`];
+    return [`${cleanItemName} (INS ${codes})`];
   }
 
-  return resolvedSubItems.length > 0 ? resolvedSubItems : [itemName];
+  return resolvedSubItems.length > 0 ? resolvedSubItems : [cleanItemName];
 }
 
 /**
@@ -318,29 +302,22 @@ export function parseIngredients(rawText) {
     text = text.substring(0, earliestBoundaryIndex);
   }
 
-  // Step 4: Split into the real ingredients sentence vs. trailing
-  // footnotes/allergen declarations, at the first depth-0 sentence period
-  const sentenceEndIdx = findIngredientsSentenceEnd(text);
+  // Step 4: Extract explicit allergen advice section if present
   let ingredientsSection = text;
   let trailingSection = '';
-  if (sentenceEndIdx !== -1) {
-    ingredientsSection = text.slice(0, sentenceEndIdx);
-    trailingSection = text.slice(sentenceEndIdx + 1);
+  const allergenMatch = text.match(/ALLERGEN\s*ADVICE\s*[:\-]?\s*(.*)/i);
+  if (allergenMatch) {
+    ingredientsSection = text.slice(0, allergenMatch.index);
+    trailingSection = allergenMatch[0];
   }
 
-  // Extra safety: also cut at a footnote marker even without a preceding
-  // period, in case OCR dropped the period
-  const footnoteMatch = ingredientsSection.match(/\s[*~](?=[A-Za-z])/);
-  if (footnoteMatch) {
-    trailingSection = ingredientsSection.slice(footnoteMatch.index) + ' ' + trailingSection;
-    ingredientsSection = ingredientsSection.slice(0, footnoteMatch.index);
-  }
+  const explicitAllergens = extractDeclaredAllergens(trailingSection || text);
 
-  // Step 5: Extract declared allergens from the trailing section only
-  const explicitAllergens = extractDeclaredAllergens(trailingSection);
+  // Step 5: Replace periods that separate items (not decimal numbers like 0.6%) with commas
+  ingredientsSection = ingredientsSection.replace(/(\D)\.(?=\s+[A-Z0-9])/g, '$1,');
 
   // Step 6: Recursively resolve the ingredients section into a flat list
-  const topLevelChunks = splitAtDepthZero(ingredientsSection, ',')
+  const topLevelChunks = splitAtDepthZero(ingredientsSection, [',', ';'])
     .map(s => s.trim())
     .filter(Boolean);
   let resolved = topLevelChunks.flatMap(resolveChunk);

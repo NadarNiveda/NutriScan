@@ -88,14 +88,14 @@ export function cleanOcrNoise(str) {
   if (!str) return '';
 
   let cleaned = str
-    .replace(/[@©®™§{}~\[\]\\^|/`_=+<>]/g, ' ')
+    .replace(/[@©®™§{}~\\^|/`_=+<>]/g, ' ')
     .replace(/-{2,}/g, ' ')
     .replace(/\.{2,}/g, ' ');
 
   const tokens = cleaned.split(/\s+/);
 
   const validTokens = tokens.filter(token => {
-    const trimmed = token.replace(/[^a-zA-Z0-9%]/g, '');
+    const trimmed = token.replace(/[^a-zA-Z0-9%\[\]\(\)]/g, '');
     if (!trimmed) return false;
 
     if (/^\d+%?$/.test(trimmed)) return true;
